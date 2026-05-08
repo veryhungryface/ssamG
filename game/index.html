@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Mouse Bro - Super Cheese Adventure</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="frame">
+    <header id="hud">
+      <div class="hud-block"><span class="hud-label">SCORE</span><span id="hud-score">000000</span></div>
+      <div class="hud-block hud-coins">
+        <img class="coin-icon" alt="" src="../assets/sprites/coin_1.png" />
+        <span id="hud-coins">x 00</span>
+      </div>
+      <div class="hud-block"><span class="hud-label">WORLD</span><span id="hud-world">1-1</span></div>
+      <div class="hud-block"><span class="hud-label">TIME</span><span id="hud-time">300</span></div>
+      <div class="hud-block"><span class="hud-label">LIVES</span><span id="hud-lives">x 3</span></div>
+    </header>
+
+    <canvas id="game" width="960" height="540"></canvas>
+
+    <div id="overlay" class="overlay show">
+      <div class="title">
+        <span class="title-line1">MOUSE BRO</span>
+        <span class="title-line2">Super Cheese Adventure</span>
+      </div>
+      <div class="instructions">
+        <p><b>← →</b> 또는 <b>A D</b>: 이동</p>
+        <p><b>SPACE</b> / <b>↑</b> / <b>W</b>: 점프</p>
+        <p><b>SHIFT</b>: 빨리 달리기</p>
+        <p>치즈 적을 밟아 처치하고, 깃발에 도착하세요!</p>
+      </div>
+      <button id="start-btn">START</button>
+    </div>
+
+    <div id="touch-controls">
+      <div class="dpad">
+        <button data-key="ArrowLeft" class="touch-btn">◀</button>
+        <button data-key="ArrowRight" class="touch-btn">▶</button>
+      </div>
+      <div class="actions">
+        <button data-key="Shift" class="touch-btn small">RUN</button>
+        <button data-key=" " class="touch-btn jump">JUMP</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="level.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
