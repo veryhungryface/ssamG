@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
   });
   page.on('pageerror', err => errors.push('PAGE: ' + err.message));
 
-  await page.goto('http://localhost:8765/game/index.html', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:8765/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'assets/preview/game_title.png' });
 

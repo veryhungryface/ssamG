@@ -12,7 +12,7 @@
 // ----------------------------------------------------------------------
 // Asset loader
 // ----------------------------------------------------------------------
-const SPRITE_DIR = '../assets/sprites/';
+const SPRITE_DIR = 'assets/sprites/';
 const SPRITES = {};
 const SPRITE_LIST = [
     'player_idle_1', 'player_idle_2_blink', 'player_idle_3_tail', 'player_idle_4_tail',

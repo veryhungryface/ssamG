@@ -9,8 +9,12 @@ hand-crafted as pixel-art templates.
 ```bash
 # Serve the project (any static server works)
 python3 -m http.server 8765
-# then open: http://localhost:8765/game/index.html
+# then open: http://localhost:8765/
 ```
+
+The `index.html` lives at the project root so the site can be deployed
+to any static host (Vercel, Netlify, GitHub Pages, etc.) with no
+configuration.
 
 ### Controls
 
@@ -27,17 +31,15 @@ Touch controls appear automatically on mobile devices.
 ```
 ssamG/
 ├── README.md
+├── index.html              # Entry point
+├── style.css
+├── level.js                # Level data + tile dimensions
+├── main.js                 # Game engine
 ├── assets/
-│   ├── sprites/        # Generated PNGs (player, enemy, blocks, etc.)
-│   └── preview/        # 4x scaled previews + game screenshots
-├── scripts/
-│   ├── generate_sprites.py   # Pixel-art sprite generator
-│   └── test_game.js          # Playwright smoke test
-└── game/
-    ├── index.html
-    ├── style.css
-    ├── level.js
-    └── main.js
+│   └── sprites/            # Generated PNGs (player, enemy, blocks, etc.)
+└── scripts/
+    ├── generate_sprites.py # Pixel-art sprite generator
+    └── test_game.js        # Playwright smoke test
 ```
 
 ## Sprite pipeline
