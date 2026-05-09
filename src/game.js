@@ -37,6 +37,7 @@ const SUPABASE_PUBLIC_KEY = "sb_publishable_My-5-811CjFD-McH8IfrKA_dHsJwcGb";
 const LEADERBOARD_LIMIT = 10;
 const PLAYER_NAME_STORAGE_KEY = "saengjwi_player_name";
 const SAVE_STORAGE_KEY = "saengjwi_adventure_save_v1";
+const PROGRESS_STORAGE_KEY = "saengjwi_adventure_progress_v1";
 const CODEX_STORAGE_KEY = "saengjwi_aibox_codex_v1";
 const GRAVITY = 2450;
 const MOVE_SPEED = 440;
@@ -770,6 +771,8 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
     damageCooldown: 0,
     hitStun: 0,
     knockbackVx: 0,
+    recoilTimer: 0,
+    recoilDir: 0,
     vy: 0,
     introShown: false,
     dead: false,
@@ -821,8 +824,12 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
 
 function readSavedGame() {
   const data = readStorageJson(SAVE_STORAGE_KEY, null);
-  if (!data || data.version !== 1) return null;
-  const levelIndex = clamp(Number(data.levelIndex) || 0, 0, levelsData.length - 1);
+  const progress = readProgress();
+  if (!data || data.version !== 1) {
+    return progress ? createFallbackSave(progress.highestLevelIndex) : null;
+  }
+  const savedLevelIndex = Number(data.levelIndex) || 0;
+  const levelIndex = clamp(Math.max(savedLevelIndex, progress?.highestLevelIndex ?? 0), 0, levelsData.length - 1);
   return {
     ...data,
     levelIndex,
@@ -835,23 +842,40 @@ function readSavedGame() {
   };
 }
 
+function createFallbackSave(levelIndex) {
+  return {
+    version: 1,
+    levelIndex: clamp(levelIndex, 0, levelsData.length - 1),
+    score: 0,
+    coins: 0,
+    lives: 3,
+    shield: 0,
+    aiboxInventory: [],
+    aiboxCards: readSavedCodexIds()
+  };
+}
+
 function hasSavedGame() {
   return Boolean(readSavedGame());
 }
 
 function saveGame({ levelIndex = state.levelIndex } = {}) {
   if (!state.level) return;
+  const safeLevelIndex = clamp(levelIndex, 0, levelsData.length - 1);
+  const codexCards = mergeCodexIds(state.aiboxCards);
   const payload = {
     version: 1,
-    levelIndex: clamp(levelIndex, 0, levelsData.length - 1),
+    levelIndex: safeLevelIndex,
     score: Math.max(0, Math.floor(state.score)),
     coins: Math.max(0, Math.floor(state.coins)),
     lives: clamp(Math.floor(state.lives || 3), 1, 3),
     shield: Math.max(0, Math.floor(state.shield || 0)),
     aiboxInventory: Array.from(state.aiboxInventory).filter((id) => AIBOX_ITEMS_BY_ID[id]),
-    aiboxCards: Array.from(state.aiboxCards).filter((id) => AIBOX_ITEMS_BY_ID[id]),
+    aiboxCards: codexCards,
     updatedAt: new Date().toISOString()
   };
+  state.aiboxCards = new Set(codexCards);
+  saveProgress(safeLevelIndex);
   localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(payload));
   saveCodex();
   if (state.mode !== "playing") setStartVisible(true);
@@ -874,7 +898,8 @@ function restorePersistentCodex() {
 }
 
 function saveCodex() {
-  const cards = Array.from(state.aiboxCards).filter((id) => AIBOX_ITEMS_BY_ID[id]);
+  const cards = mergeCodexIds(state.aiboxCards);
+  state.aiboxCards = new Set(cards);
   localStorage.setItem(CODEX_STORAGE_KEY, JSON.stringify(cards));
 }
 
@@ -885,6 +910,33 @@ function readSavedCodexIds() {
     ...(Array.isArray(saved) ? saved : []),
     ...(Array.isArray(game?.aiboxCards) ? game.aiboxCards : [])
   ]);
+}
+
+function mergeCodexIds(ids = []) {
+  return filterKnownAiboxIds([
+    ...readSavedCodexIds(),
+    ...(Array.isArray(ids) ? ids : Array.from(ids || []))
+  ]);
+}
+
+function readProgress() {
+  const progress = readStorageJson(PROGRESS_STORAGE_KEY, null);
+  if (!progress || progress.version !== 1) return null;
+  return {
+    version: 1,
+    highestLevelIndex: clamp(Number(progress.highestLevelIndex) || 0, 0, levelsData.length - 1),
+    updatedAt: progress.updatedAt || ""
+  };
+}
+
+function saveProgress(levelIndex) {
+  const previous = readProgress();
+  const highestLevelIndex = Math.max(previous?.highestLevelIndex ?? 0, clamp(levelIndex, 0, levelsData.length - 1));
+  localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({
+    version: 1,
+    highestLevelIndex,
+    updatedAt: new Date().toISOString()
+  }));
 }
 
 function filterKnownAiboxIds(ids) {
@@ -902,6 +954,7 @@ function readStorageJson(key, fallback) {
 
 function clearLocalProgress() {
   localStorage.removeItem(SAVE_STORAGE_KEY);
+  localStorage.removeItem(PROGRESS_STORAGE_KEY);
   localStorage.removeItem(CODEX_STORAGE_KEY);
   state.aiboxInventory = new Set();
   state.aiboxCards = new Set();
@@ -953,6 +1006,7 @@ function continueSavedGame() {
   setupLevel(saved.levelIndex, { mode: "playing", keepStats: false });
   restoreSavedStats(saved);
   state.mode = "playing";
+  saveGame({ levelIndex: saved.levelIndex });
   setStartVisible(false);
   hideScoreModal();
   pauseIntro();
@@ -1394,7 +1448,7 @@ function updateEnemies(dt) {
     const pr = rectPlayer();
     if (!overlap(pr, er)) continue;
     if (enemy.type === "aiboxBoss") {
-      if ((enemy.hitStun ?? 0) > 0) continue;
+      if ((enemy.hitStun ?? 0) > 0 || (enemy.recoilTimer ?? 0) > 0) continue;
       handleAiboxBossCollision(enemy, dt, pr, er);
       continue;
     }
@@ -1435,6 +1489,22 @@ function updateAiboxBoss(enemy, dt) {
       enemy.knockbackVx = -Math.abs(enemy.knockbackVx ?? 0) * 0.35;
     }
     enemy.y = enemy.baseY + Math.sin(enemy.frame * 5.8) * 6;
+    return;
+  }
+
+  if ((enemy.recoilTimer ?? 0) > 0) {
+    enemy.recoilTimer = Math.max(0, enemy.recoilTimer - dt);
+    enemy.x += (enemy.recoilDir || enemy.dir || 1) * (enemy.evadeSpeed ?? 330) * dt;
+    if (enemy.x < enemy.minX) {
+      enemy.x = enemy.minX;
+      enemy.recoilDir = 1;
+    }
+    if (enemy.x > enemy.maxX) {
+      enemy.x = enemy.maxX;
+      enemy.recoilDir = -1;
+    }
+    enemy.dir = enemy.recoilDir || enemy.dir;
+    enemy.y = enemy.baseY + Math.sin(enemy.frame * 4.2) * 7;
     return;
   }
 
@@ -1501,12 +1571,14 @@ function knockAiboxBossAside(enemy) {
   const playerCenter = state.player.x + state.player.w / 2;
   const enemyCenter = enemy.x + enemy.w / 2;
   const dir = playerCenter < enemyCenter ? 1 : -1;
-  enemy.x = clamp(enemy.x + dir * 72, enemy.minX, enemy.maxX);
-  enemy.dir = -dir;
-  enemy.hitStun = 0.42;
-  enemy.damageCooldown = Math.max(enemy.damageCooldown ?? 0, 0.2);
-  enemy.knockbackVx = dir * 520;
-  burst(enemy.x + enemy.w / 2, enemy.y + 24, "#fff06b", 10, 180);
+  enemy.x = clamp(enemy.x + dir * 132, enemy.minX, enemy.maxX);
+  enemy.dir = dir;
+  enemy.hitStun = 0.62;
+  enemy.recoilTimer = 0.82;
+  enemy.recoilDir = dir;
+  enemy.damageCooldown = Math.max(enemy.damageCooldown ?? 0, 0.36);
+  enemy.knockbackVx = dir * 860;
+  burst(enemy.x + enemy.w / 2, enemy.y + 24, "#fff06b", 16, 240);
 }
 
 function damageAiboxBoss(enemy, amount, contact, strong) {
@@ -2567,9 +2639,9 @@ function drawVisualNovelDialogue({ alpha = 1, side, speaker, message, subline = 
   const barY = 492;
   const barW = VIEW_W - 48;
   const barH = 196;
-  const textX = leftSide ? 312 : 58;
-  const textMax = leftSide ? 890 : 820;
-  const nameX = leftSide ? 270 : VIEW_W - 462;
+  const textX = 58;
+  const textMax = leftSide ? 1128 : 820;
+  const nameX = leftSide ? 54 : VIEW_W - 462;
 
   ctx.save();
   ctx.globalAlpha = alpha;
