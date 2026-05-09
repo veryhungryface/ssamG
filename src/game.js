@@ -884,18 +884,23 @@ function hasSavedGame() {
   return Boolean(readSavedGame());
 }
 
-function saveGame({ levelIndex = state.levelIndex } = {}) {
+function saveGame({ levelIndex = state.levelIndex, resetStats = false } = {}) {
   if (!state.level) return;
   const safeLevelIndex = clamp(levelIndex, 0, levelsData.length - 1);
   const codexCards = mergeCodexIds(state.aiboxCards);
+  const saved = readStorageJson(SAVE_STORAGE_KEY, null);
+  const aiboxInventory = filterKnownAiboxIds([
+    ...(Array.isArray(saved?.aiboxInventory) ? saved.aiboxInventory : []),
+    ...Array.from(state.aiboxInventory)
+  ]);
   const payload = {
     version: 1,
     levelIndex: safeLevelIndex,
-    score: Math.max(0, Math.floor(state.score)),
-    coins: Math.max(0, Math.floor(state.coins)),
-    lives: clamp(Math.floor(state.lives || 3), 1, 3),
-    shield: Math.max(0, Math.floor(state.shield || 0)),
-    aiboxInventory: Array.from(state.aiboxInventory).filter((id) => AIBOX_ITEMS_BY_ID[id]),
+    score: resetStats ? 0 : Math.max(0, Math.floor(state.score)),
+    coins: resetStats ? 0 : Math.max(0, Math.floor(state.coins)),
+    lives: resetStats ? 3 : clamp(Math.floor(state.lives || 3), 1, 3),
+    shield: resetStats ? 0 : Math.max(0, Math.floor(state.shield || 0)),
+    aiboxInventory,
     aiboxCards: codexCards,
     updatedAt: new Date().toISOString()
   };
@@ -2013,13 +2018,13 @@ function showNewCodexReward(itemId) {
 }
 
 function endGame(won, message) {
+  if (!won) saveGame({ levelIndex: state.levelIndex, resetStats: true });
   state.mode = won ? "win" : "lose";
   state.message = message;
   setStartVisible(won);
   pauseIntro();
   pauseBgm();
   saveCodex();
-  if (!won) localStorage.removeItem(SAVE_STORAGE_KEY);
   if (won) burst(state.player.x + state.player.w / 2, state.player.y + 20, "#fff06b", 26, 280);
   else playSfx("gameover", 0.66);
   void handleEndGameScoreFlow(won);
