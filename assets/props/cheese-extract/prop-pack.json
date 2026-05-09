@@ -1,0 +1,57 @@
+{
+  "input": "outputs/saengjwi_adventure_20260508/assets/raw/cheese-raw.png",
+  "rows": 1,
+  "cols": 1,
+  "threshold": 115,
+  "edge_threshold": 170,
+  "component_mode": "largest",
+  "component_padding": 8,
+  "min_component_area": 100,
+  "edge_touch_margin": 0,
+  "accepted": [
+    {
+      "index": 0,
+      "label": "cheese",
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 382674,
+      "selected_component_bbox": [
+        256,
+        271,
+        1003,
+        912
+      ],
+      "crop_bbox": [
+        256,
+        271,
+        1003,
+        912
+      ],
+      "padded_crop_bbox": [
+        248,
+        263,
+        1011,
+        920
+      ],
+      "edge_touch": false,
+      "output_size": [
+        763,
+        657
+      ],
+      "status": "accepted",
+      "image": "outputs/saengjwi_adventure_20260508/assets/props/cheese-extract/cheese/prop.png"
+    }
+  ],
+  "rejected": [],
+  "edge_touch_props": []
+}

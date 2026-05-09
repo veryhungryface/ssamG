@@ -1,0 +1,126 @@
+{
+  "input": "outputs/saengjwi_adventure_20260508/assets/raw/platform-strip-raw.png",
+  "rows": 1,
+  "cols": 3,
+  "threshold": 115,
+  "edge_threshold": 170,
+  "component_mode": "all",
+  "component_padding": 6,
+  "min_component_area": 100,
+  "edge_touch_margin": 0,
+  "accepted": [
+    {
+      "index": 0,
+      "label": "platform-left",
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        724,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        175,
+        218,
+        626,
+        482
+      ],
+      "padded_crop_bbox": [
+        169,
+        212,
+        632,
+        488
+      ],
+      "edge_touch": false,
+      "output_size": [
+        463,
+        276
+      ],
+      "status": "accepted",
+      "image": "outputs/saengjwi_adventure_20260508/assets/props/platform-strip/platform-left/prop.png"
+    },
+    {
+      "index": 1,
+      "label": "platform-mid",
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        724,
+        0,
+        1448,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 1,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        37,
+        249,
+        680,
+        481
+      ],
+      "padded_crop_bbox": [
+        31,
+        243,
+        686,
+        487
+      ],
+      "edge_touch": false,
+      "output_size": [
+        655,
+        244
+      ],
+      "status": "accepted",
+      "image": "outputs/saengjwi_adventure_20260508/assets/props/platform-strip/platform-mid/prop.png"
+    },
+    {
+      "index": 2,
+      "label": "platform-right",
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1448,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        93,
+        223,
+        555,
+        481
+      ],
+      "padded_crop_bbox": [
+        87,
+        217,
+        561,
+        487
+      ],
+      "edge_touch": false,
+      "output_size": [
+        474,
+        270
+      ],
+      "status": "accepted",
+      "image": "outputs/saengjwi_adventure_20260508/assets/props/platform-strip/platform-right/prop.png"
+    }
+  ],
+  "rejected": [],
+  "edge_touch_props": []
+}

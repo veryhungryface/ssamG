@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>쌤쥐 어드벤처</title>
+    <link rel="stylesheet" href="./styles.css?v=20260510-frog-refresh" />
+  </head>
+  <body>
+    <main class="game-shell" data-mode="ready" aria-label="쌤쥐 어드벤처 게임">
+      <canvas id="game" width="1280" height="720"></canvas>
+      <audio id="introBgm" src="./assets/sound/intro.MP3" preload="auto" loop></audio>
+      <audio id="bgm" src="./assets/sound/bgm.MP3" preload="auto" loop></audio>
+      <section class="leaderboard-card" id="leaderboardCard" aria-live="polite">
+        <div class="leaderboard-head">
+          <span>BEST SCORE</span>
+          <strong>TOP 10</strong>
+        </div>
+        <ol class="leaderboard-list" id="leaderboardList"></ol>
+        <p class="leaderboard-status" id="leaderboardStatus"></p>
+      </section>
+      <div class="screen-actions" id="screenActions">
+        <button id="startButton" type="button">새로시작</button>
+        <button id="continueButton" class="secondary hidden" type="button">이어하기</button>
+        <button id="homeButton" class="secondary home-action hidden" type="button">처음으로</button>
+        <button id="codexButton" class="secondary codex-action" type="button">도감보기</button>
+      </div>
+      <div class="score-modal hidden" id="scoreModal" role="dialog" aria-modal="true" aria-labelledby="scoreModalTitle">
+        <form class="score-form" id="scoreForm" autocomplete="off">
+          <div class="score-modal-title" id="scoreModalTitle">기록 등록</div>
+          <div class="score-modal-score" id="scoreModalScore">000000</div>
+          <label for="playerName">이름</label>
+          <input id="playerName" name="playerName" type="text" minlength="1" maxlength="12" autocomplete="nickname" required />
+          <div class="score-modal-actions">
+            <button type="submit">저장</button>
+            <button type="button" id="scoreSkipButton">닫기</button>
+          </div>
+          <p class="score-modal-status" id="scoreModalStatus"></p>
+        </form>
+      </div>
+      <div class="aibox-modal hidden" id="aiboxModal" role="dialog" aria-modal="true" aria-labelledby="aiboxModalTitle">
+        <article class="aibox-card-dialog">
+          <div class="aibox-modal-kicker">도감이 열렸습니다</div>
+          <div class="aibox-modal-body">
+            <img id="aiboxModalImage" alt="" />
+            <div class="aibox-modal-copy">
+              <h2 id="aiboxModalTitle">AI Box</h2>
+              <p id="aiboxModalDescription"></p>
+            </div>
+          </div>
+          <button id="aiboxModalClose" type="button">도감 닫기</button>
+        </article>
+      </div>
+      <div class="codex-modal hidden" id="codexModal" role="dialog" aria-modal="true" aria-labelledby="codexModalTitle">
+        <article class="codex-dialog">
+          <div class="codex-modal-head">
+            <div>
+              <span>도감</span>
+              <h2 id="codexModalTitle">획득한 도감</h2>
+            </div>
+            <button id="codexModalClose" type="button" aria-label="도감 닫기">닫기</button>
+          </div>
+          <div class="codex-modal-body">
+            <div class="codex-card-list" id="codexCardList"></div>
+            <div class="codex-card-detail" id="codexCardDetail"></div>
+          </div>
+        </article>
+      </div>
+      <div class="orientation-hint" aria-hidden="true">
+        <div class="orientation-card">
+          <div class="rotate-mark">↻</div>
+          <strong>가로모드로 돌려주세요</strong>
+          <span>쌤쥐가 넓은 화면에서 더 잘 달려요</span>
+        </div>
+      </div>
+      <div class="touch-controls" aria-label="터치 조작">
+        <div class="move-pad" aria-label="이동">
+          <button type="button" data-key="left" aria-label="왼쪽">‹</button>
+          <button type="button" data-key="right" aria-label="오른쪽">›</button>
+        </div>
+        <div class="jump-pad" aria-label="점프">
+          <button type="button" data-key="jump" aria-label="점프">⌃</button>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="./src/game.js?v=20260510-frog-refresh"></script>
+  </body>
+</html>
