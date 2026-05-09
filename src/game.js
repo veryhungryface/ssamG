@@ -32,6 +32,8 @@ ctx.imageSmoothingEnabled = false;
 
 const VIEW_W = 1280;
 const VIEW_H = 720;
+const TOUCH_PERFORMANCE_MODE = window.matchMedia?.("(pointer: coarse), (any-pointer: coarse)").matches ?? false;
+const MOBILE_FRAME_INTERVAL = TOUCH_PERFORMANCE_MODE ? 1000 / 45 : 0;
 const SUPABASE_URL = "https://pacvofregyprqnunlsyi.supabase.co";
 const SUPABASE_PUBLIC_KEY = "sb_publishable_My-5-811CjFD-McH8IfrKA_dHsJwcGb";
 const LEADERBOARD_LIMIT = 10;
@@ -412,6 +414,10 @@ canvas.addEventListener("pointerdown", (event) => {
   maybeResumeIntro(event);
 });
 
+document.addEventListener("selectstart", suppressGameSelection, { capture: true });
+document.addEventListener("dragstart", suppressGameSelection, { capture: true });
+document.addEventListener("contextmenu", suppressGameSelection, { capture: true });
+
 window.addEventListener("keydown", (event) => {
   if (state.codexModalOpen) {
     event.preventDefault();
@@ -457,7 +463,7 @@ document.querySelectorAll(".touch-controls button").forEach((button) => {
   const key = button.dataset.key;
   const press = (event) => {
     event.preventDefault();
-    playSfx("button", 0.36);
+    if (event.pointerId != null) button.setPointerCapture?.(event.pointerId);
     if (dismissActiveDialogue()) return;
     if (state.mode !== "playing") handlePrimaryAction();
     if (key === "jump" && !input.jump) input.jumpPressed = true;
@@ -466,12 +472,31 @@ document.querySelectorAll(".touch-controls button").forEach((button) => {
   const release = (event) => {
     event.preventDefault();
     input[key] = false;
+    try {
+      if (event.pointerId != null && button.hasPointerCapture?.(event.pointerId)) button.releasePointerCapture(event.pointerId);
+    } catch {}
   };
-  button.addEventListener("pointerdown", press);
-  button.addEventListener("pointerup", release);
-  button.addEventListener("pointercancel", release);
-  button.addEventListener("pointerleave", release);
+  button.addEventListener("pointerdown", press, { passive: false });
+  button.addEventListener("pointerup", release, { passive: false });
+  button.addEventListener("pointercancel", release, { passive: false });
+  button.addEventListener("lostpointercapture", release, { passive: false });
 });
+
+document.querySelector(".touch-controls")?.addEventListener("touchmove", (event) => {
+  event.preventDefault();
+}, { passive: false });
+document.querySelector(".touch-controls")?.addEventListener("touchstart", (event) => {
+  event.preventDefault();
+}, { passive: false });
+
+function suppressGameSelection(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+  if (target === canvas || target.closest(".touch-controls") || target.closest(".game-shell")) {
+    event.preventDefault();
+  }
+}
 
 function maybeResumeIntro(event) {
   if (state.mode !== "ready") return;
@@ -1039,6 +1064,10 @@ function setStartVisible(visible) {
 
 let previous = performance.now();
 function loop(now) {
+  if (MOBILE_FRAME_INTERVAL && now - previous < MOBILE_FRAME_INTERVAL) {
+    requestAnimationFrame(loop);
+    return;
+  }
   const dt = Math.min(0.033, (now - previous) / 1000);
   previous = now;
   update(dt);
@@ -2056,8 +2085,15 @@ function drawWorld() {
   drawGoal();
 }
 
+function isWorldRectVisible(x, w, margin = 140) {
+  const left = state.cameraX - margin;
+  const right = state.cameraX + VIEW_W + margin;
+  return x + w >= left && x <= right;
+}
+
 function drawPlatform(platform) {
   if (platform.hidden) return;
+  if (!isWorldRectVisible(platform.x, platform.w, 220)) return;
   if (platform.kind === "moving") {
     drawImageCentered(images.movingPlatform, platform.x + platform.w / 2, platform.y + platform.h / 2 + 2, platform.w, platform.h + 34);
     return;
@@ -2075,19 +2111,25 @@ function drawPlatform(platform) {
   const drawY = platform.y - 20;
   const drawH = Math.max(92, platform.h + 48);
   const capW = Math.min(112, platform.w * 0.28);
-  ctx.drawImage(left, platform.x - 10, drawY, capW + 28, drawH);
+  if (isWorldRectVisible(platform.x - 10, capW + 28, 120)) ctx.drawImage(left, platform.x - 10, drawY, capW + 28, drawH);
   const midStart = platform.x + capW - 12;
   const midEnd = platform.x + platform.w - capW + 16;
-  for (let x = midStart; x < midEnd; x += 126) {
+  const tileW = 126;
+  const visibleLeft = state.cameraX - 160;
+  const visibleRight = state.cameraX + VIEW_W + 160;
+  const firstTile = midStart + Math.max(0, Math.floor((visibleLeft - midStart) / tileW)) * tileW;
+  for (let x = firstTile; x < midEnd && x < visibleRight; x += tileW) {
     const width = Math.min(138, midEnd - x + 4);
     ctx.drawImage(mid, x, drawY + 4, width, drawH - 8);
   }
-  ctx.drawImage(right, platform.x + platform.w - capW - 12, drawY, capW + 28, drawH);
+  const rightX = platform.x + platform.w - capW - 12;
+  if (isWorldRectVisible(rightX, capW + 28, 120)) ctx.drawImage(right, rightX, drawY, capW + 28, drawH);
 }
 
 function drawBlocks() {
   for (const block of state.level.blocks) {
     if (block.hidden && !block.revealed) continue;
+    if (!isWorldRectVisible(block.x, block.w ?? 68, 120)) continue;
     const img = block.type === "stone" || block.used ? images.stoneBlock : block.type === "carrot" ? images.carrot : block.type === "star" ? images.star : images.pawBlock;
     const bump = block.bump > 0 ? Math.sin(block.bump * Math.PI * 10) * -5 : 0;
     block.bump = Math.max(0, block.bump - 0.016);
@@ -2099,12 +2141,19 @@ function drawBlocks() {
 
 function drawHazards() {
   for (const hazard of state.level.hazards) {
+    if (!isWorldRectVisible(hazard.x, hazard.w, 160)) continue;
     if (hazard.type === "water") {
-      for (let x = hazard.x; x < hazard.x + hazard.w; x += 96) {
+      const step = 96;
+      const start = hazard.x + Math.max(0, Math.floor((state.cameraX - 160 - hazard.x) / step)) * step;
+      const end = Math.min(hazard.x + hazard.w, state.cameraX + VIEW_W + 180);
+      for (let x = start; x < end; x += step) {
         ctx.drawImage(images.water, x, hazard.y - 12, Math.min(112, hazard.x + hazard.w - x + 16), hazard.h + 28);
       }
     } else {
-      for (let x = hazard.x; x < hazard.x + hazard.w; x += 46) {
+      const step = 46;
+      const start = hazard.x + Math.max(0, Math.floor((state.cameraX - 160 - hazard.x) / step)) * step;
+      const end = Math.min(hazard.x + hazard.w, state.cameraX + VIEW_W + 180);
+      for (let x = start; x < end; x += step) {
         ctx.drawImage(images.spike, x - 4, hazard.y - 42, 58, hazard.h + 48);
       }
     }
@@ -2112,7 +2161,9 @@ function drawHazards() {
 }
 
 function drawDecor() {
-  for (const sign of state.level.signs) drawImageCentered(images.sign, sign.x, sign.y, 126, 84);
+  for (const sign of state.level.signs) {
+    if (isWorldRectVisible(sign.x - 63, 126, 120)) drawImageCentered(images.sign, sign.x, sign.y, 126, 84);
+  }
 }
 
 function drawCollectibles() {
@@ -2131,6 +2182,7 @@ function drawItemList(items, image, size, bob) {
   const now = performance.now() / 1000;
   for (const item of items) {
     if (item.taken) continue;
+    if (!isWorldRectVisible(item.x, size, 110)) continue;
     const y = item.y + Math.sin(now * 4 + item.pulse) * (bob * 40);
     drawImageCentered(image, item.x + size / 2, y + size / 2, size, size);
   }
@@ -2140,6 +2192,7 @@ function drawAiboxItems() {
   const now = performance.now() / 1000;
   for (const item of state.level.aiboxItems) {
     if (item.taken) continue;
+    if (!isWorldRectVisible(item.x, 62, 120)) continue;
     const icon = getAiboxIconImage(item.itemId);
     const y = item.y + Math.sin(now * 4.4 + item.pulse) * 4;
     ctx.save();
@@ -2159,6 +2212,7 @@ function drawEnemies() {
   const sheet = images.turtleSheet;
   for (const enemy of state.enemies) {
     if (enemy.dead) continue;
+    if (!isWorldRectVisible(enemy.x, enemy.w, 220)) continue;
     if (enemy.type === "aiboxBoss") {
       drawAiboxBoss(enemy);
       continue;
@@ -2288,6 +2342,7 @@ function drawAiboxBoss(enemy) {
 
 function drawProjectiles() {
   for (const projectile of state.projectiles) {
+    if (!isWorldRectVisible(projectile.x - projectile.size, projectile.size * 2, 120)) continue;
     if (projectile.image) {
       ctx.save();
       ctx.globalAlpha = clamp(projectile.life / 0.42, 0, 1);
@@ -2309,6 +2364,7 @@ function drawProjectiles() {
 
 function drawGoal() {
   const goal = state.level.goal;
+  if (!isWorldRectVisible(goal.x, goal.w, 160)) return;
   drawImageCentered(images.flag, goal.x + goal.w / 2, goal.y + goal.h / 2, 112, 142);
 }
 
