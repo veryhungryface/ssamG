@@ -116,7 +116,9 @@
         "maxX": 1390,
         "speed": 50
       }
-    ]
+    ],
+    "theme": "meadow",
+    "miniGames": []
   },
   {
     "id": 2,
@@ -288,13 +290,22 @@
         "y": 460,
         "minX": 1880,
         "maxX": 2200,
-        "hp": 4,
-        "speed": 70,
-        "chargeSpeed": 116,
+        "hp": 3,
+        "speed": 76,
+        "chargeSpeed": 132,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 3,
+        "attackDelay": 1.34,
+        "projectileSpeed": 245,
+        "evadeSpeed": 360,
+        "knockbackDistance": 142,
+        "knockbackVelocity": 880,
+        "recoilDuration": 0.88
       }
-    ]
+    ],
+    "theme": "meadow",
+    "miniGames": []
   },
   {
     "id": 3,
@@ -449,7 +460,9 @@
         "maxX": 2050,
         "speed": 76
       }
-    ]
+    ],
+    "theme": "sunset",
+    "miniGames": []
   },
   {
     "id": 4,
@@ -626,13 +639,22 @@
         "minX": 2110,
         "maxX": 2470,
         "hp": 4,
-        "speed": 78,
-        "chargeSpeed": 124,
+        "speed": 88,
+        "chargeSpeed": 150,
         "floatAmp": 14,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 4,
+        "attackDelay": 1.16,
+        "projectileSpeed": 285,
+        "evadeSpeed": 430,
+        "knockbackDistance": 152,
+        "knockbackVelocity": 940,
+        "recoilDuration": 0.96
       }
-    ]
+    ],
+    "theme": "sunset",
+    "miniGames": []
   },
   {
     "id": 5,
@@ -816,6 +838,21 @@
         "minX": 2140,
         "maxX": 2620,
         "speed": 62
+      }
+    ],
+    "theme": "sunset",
+    "miniGames": [
+      {
+        "id": "cheese-catch-5",
+        "type": "cheeseCatch",
+        "x": 1460,
+        "title": "치즈 캐치!",
+        "target": 5,
+        "time": 9,
+        "spawnRate": 0.62,
+        "goodChance": 0.76,
+        "fallSpeed": 245,
+        "rewardScore": 900
       }
     ]
   },
@@ -1023,12 +1060,35 @@
         "minX": 2620,
         "maxX": 3030,
         "hp": 5,
-        "speed": 70,
-        "chargeSpeed": 128,
+        "speed": 94,
+        "chargeSpeed": 166,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 5,
+        "attackDelay": 0.98,
+        "projectileSpeed": 320,
+        "evadeSpeed": 500,
+        "knockbackDistance": 164,
+        "knockbackVelocity": 1000,
+        "recoilDuration": 1.04
+      },
+      {
+        "type": "blocker",
+        "x": 2210,
+        "y": 498,
+        "minX": 1995,
+        "maxX": 2520,
+        "speed": 76,
+        "chargeSpeed": 118,
+        "detectRange": 520,
+        "hoverHeight": 78,
+        "dropSpeed": 740,
+        "dropDelay": 1.55,
+        "riseSpeed": 300
       }
-    ]
+    ],
+    "theme": "night",
+    "miniGames": []
   },
   {
     "id": 7,
@@ -1203,7 +1263,9 @@
         "maxX": 2700,
         "speed": 205
       }
-    ]
+    ],
+    "theme": "night",
+    "miniGames": []
   },
   {
     "id": 8,
@@ -1364,12 +1426,49 @@
         "y": 450,
         "minX": 2550,
         "maxX": 3000,
-        "hp": 5,
-        "speed": 78,
-        "chargeSpeed": 132,
+        "hp": 6,
+        "speed": 106,
+        "chargeSpeed": 186,
         "floatAmp": 16,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 6,
+        "attackDelay": 0.82,
+        "projectileSpeed": 365,
+        "evadeSpeed": 560,
+        "knockbackDistance": 178,
+        "knockbackVelocity": 1080,
+        "recoilDuration": 1.1
+      },
+      {
+        "type": "blocker",
+        "x": 2380,
+        "y": 498,
+        "minX": 2200,
+        "maxX": 2805,
+        "speed": 92,
+        "chargeSpeed": 138,
+        "detectRange": 580,
+        "hoverHeight": 90,
+        "dropSpeed": 880,
+        "dropDelay": 1.28,
+        "riseSpeed": 335
+      }
+    ],
+    "theme": "storm",
+    "miniGames": [
+      {
+        "id": "cheese-catch-8",
+        "type": "cheeseCatch",
+        "x": 2200,
+        "title": "폭풍 치즈 캐치!",
+        "target": 6,
+        "time": 8,
+        "spawnRate": 0.5,
+        "goodChance": 0.68,
+        "fallSpeed": 315,
+        "rewardScore": 1100,
+        "rewardShield": 1
       }
     ]
   },
@@ -1579,14 +1678,37 @@
         "maxX": 3440,
         "w": 160,
         "h": 128,
-        "hp": 4,
-        "speed": 84,
-        "chargeSpeed": 142,
-        "floatAmp": 10,
+        "hp": 7,
+        "speed": 116,
+        "chargeSpeed": 204,
+        "floatAmp": 16,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 7,
+        "attackDelay": 0.72,
+        "projectileSpeed": 400,
+        "evadeSpeed": 620,
+        "knockbackDistance": 190,
+        "knockbackVelocity": 1160,
+        "recoilDuration": 1.16
+      },
+      {
+        "type": "blocker",
+        "x": 2920,
+        "y": 498,
+        "minX": 2520,
+        "maxX": 3350,
+        "speed": 108,
+        "chargeSpeed": 158,
+        "detectRange": 650,
+        "hoverHeight": 100,
+        "dropSpeed": 1010,
+        "dropDelay": 1.05,
+        "riseSpeed": 370
       }
-    ]
+    ],
+    "theme": "storm",
+    "miniGames": []
   },
   {
     "id": 10,
@@ -1787,15 +1909,36 @@
         "maxX": 2820,
         "w": 160,
         "h": 128,
-        "hp": 5,
-        "speed": 92,
-        "chargeSpeed": 150,
-        "floatAmp": 18,
-        "attackDelay": 0.92,
-        "projectileSpeed": 310,
+        "hp": 8,
+        "speed": 128,
+        "chargeSpeed": 224,
+        "floatAmp": 22,
+        "attackDelay": 0.6,
+        "projectileSpeed": 438,
         "detectRange": 780,
-        "introRange": 950
+        "introRange": 950,
+        "requiredHits": 8,
+        "evadeSpeed": 690,
+        "knockbackDistance": 208,
+        "knockbackVelocity": 1260,
+        "recoilDuration": 1.24
+      },
+      {
+        "type": "blocker",
+        "x": 2320,
+        "y": 498,
+        "minX": 2100,
+        "maxX": 2880,
+        "speed": 122,
+        "chargeSpeed": 182,
+        "detectRange": 710,
+        "hoverHeight": 108,
+        "dropSpeed": 1160,
+        "dropDelay": 0.88,
+        "riseSpeed": 410
       }
-    ]
+    ],
+    "theme": "storm",
+    "miniGames": []
   }
 ]

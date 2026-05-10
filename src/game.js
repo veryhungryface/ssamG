@@ -213,6 +213,9 @@ const aiboxAssetPaths = {
 
 const assetPaths = {
   background: "assets/map/saengjwi-background-1536x864.png",
+  backgroundSunset: "assets/map/saengjwi-background-sunset.png",
+  backgroundNight: "assets/map/saengjwi-background-night.png",
+  backgroundStorm: "assets/map/saengjwi-background-storm.png",
   runSheet: "assets/sprites/mouse-run/sheet-transparent.png",
   jumpSheet: "assets/sprites/mouse-jump/sheet-transparent.png",
   turtleSheet: "assets/sprites/sprout-turtle/sheet-transparent.png",
@@ -237,6 +240,7 @@ const assetPaths = {
   goblin: "assets/generated/goblin-sheet.png",
   bear: "assets/generated/bear-sheet.png",
   catboss: "assets/generated/catboss-sheet.png",
+  blocker: "assets/generated/blocker-sheet.png",
   shield: "assets/generated/shield.png",
   magnet: "assets/generated/magnet.png",
   clock: "assets/generated/clock.png",
@@ -333,6 +337,7 @@ const state = {
   dialogueLock: null,
   dialogueDismissDelay: 0,
   pauseTimer: 0,
+  miniGame: null,
   scorePrompted: false,
   scoreSubmitted: false
 };
@@ -766,6 +771,7 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
   state.dialogueLock = null;
   state.dialogueDismissDelay = 0;
   state.pauseTimer = 0;
+  state.miniGame = null;
   stopSound("boss");
   state.cameraX = 0;
   state.message = "";
@@ -775,7 +781,7 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
     state.scorePrompted = false;
     state.scoreSubmitted = false;
   }
-  for (const list of ["coins", "cheeses", "stars", "carrots", "boosts", "shields", "magnets", "clocks", "aiboxItems", "hazards", "signs"]) {
+  for (const list of ["coins", "cheeses", "stars", "carrots", "boosts", "shields", "magnets", "clocks", "aiboxItems", "hazards", "signs", "miniGames"]) {
     level[list] ||= [];
   }
   level.enemies ||= [];
@@ -842,6 +848,12 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
     stepped: false,
     fadeTimer: 0,
     hidden: false
+  }));
+  level.miniGames = level.miniGames.map((miniGame, index) => ({
+    type: "cheeseCatch",
+    ...miniGame,
+    id: miniGame.id || `mini-${safeIndex + 1}-${index + 1}`,
+    triggered: false
   }));
   setStartVisible(mode !== "playing");
   if (mode === "ready") playIntro();
@@ -1096,6 +1108,12 @@ function update(dt) {
     return;
   }
 
+  if (state.miniGame?.active) {
+    updateMiniGame(dt);
+    updateParticles(dt);
+    return;
+  }
+
   if (state.pauseTimer > 0) {
     updateParticles(dt);
     return;
@@ -1113,6 +1131,10 @@ function update(dt) {
 
   updatePlatforms(frozen ? 0 : dt);
   updatePlayer(dt);
+  if (checkMiniGameTriggers()) {
+    updateParticles(dt);
+    return;
+  }
   maybeTriggerBossCutin();
   if (state.pauseTimer > 0) {
     updateParticles(dt);
@@ -1371,6 +1393,8 @@ function updateEnemies(dt) {
     enemy.frame += dt * (enemy.animSpeed ?? 7);
     if (enemy.type === "aiboxBoss") {
       updateAiboxBoss(enemy, dt);
+    } else if (enemy.type === "blocker") {
+      updateBlocker(enemy, dt);
     } else if (enemy.type === "frog") {
       enemy.x += enemy.dir * (enemy.speed ?? 32) * dt;
       if (enemy.x < enemy.minX || enemy.x > enemy.maxX) enemy.dir *= -1;
@@ -1486,6 +1510,10 @@ function updateEnemies(dt) {
       handleAiboxBossCollision(enemy, dt, pr, er);
       continue;
     }
+    if (enemy.type === "blocker") {
+      handleBlockerCollision(enemy, dt, pr, er);
+      continue;
+    }
     if (state.invincible > 0) {
       enemy.dead = true;
       state.score += 300;
@@ -1505,6 +1533,105 @@ function updateEnemies(dt) {
       damagePlayer(false);
     }
   }
+}
+
+function updateBlocker(enemy, dt) {
+  const hoverHeight = enemy.hoverHeight ?? 84;
+  const hoverY = enemy.baseY - hoverHeight;
+  if (!enemy.dropPhase) {
+    enemy.dropPhase = "hover";
+    enemy.y = hoverY;
+    enemy.dropCooldown = enemy.dropCooldown ?? 0.4;
+  }
+
+  const playerCenter = state.player.x + state.player.w / 2;
+  const enemyCenter = enemy.x + enemy.w / 2;
+  const distance = playerCenter - enemyCenter;
+  const alert = Math.abs(distance) < (enemy.detectRange ?? 560);
+  if (alert) enemy.dir = distance > 0 ? 1 : -1;
+
+  const speed = alert ? (enemy.chargeSpeed ?? enemy.speed * 1.25) : enemy.speed;
+  enemy.x += enemy.dir * speed * dt;
+  if (enemy.x < enemy.minX) {
+    enemy.x = enemy.minX;
+    enemy.dir = 1;
+  }
+  if (enemy.x > enemy.maxX) {
+    enemy.x = enemy.maxX;
+    enemy.dir = -1;
+  }
+
+  enemy.dropCooldown = Math.max(0, (enemy.dropCooldown ?? 0) - dt);
+  if (enemy.dropPhase === "hover") {
+    enemy.y = hoverY + Math.sin(enemy.frame * 2.1) * (enemy.hoverAmp ?? 7);
+    if (alert && enemy.dropCooldown <= 0) {
+      enemy.dropPhase = "drop";
+      enemy.vy = enemy.dropSpeed ?? 820;
+      enemy.frame = 2;
+      burst(enemy.x + enemy.w / 2, enemy.y + enemy.h * 0.72, "#d6f6ff", 10, 130);
+    }
+    return;
+  }
+
+  if (enemy.dropPhase === "drop") {
+    enemy.y += enemy.vy * dt;
+    enemy.vy += GRAVITY * 0.42 * dt;
+    if (enemy.y >= enemy.baseY) {
+      enemy.y = enemy.baseY;
+      enemy.dropPhase = "land";
+      enemy.landTimer = enemy.landDuration ?? 0.26;
+      enemy.vy = 0;
+      burst(enemy.x + enemy.w / 2, enemy.y + enemy.h, "#fff06b", 22, 260);
+    }
+    return;
+  }
+
+  if (enemy.dropPhase === "land") {
+    enemy.landTimer = Math.max(0, (enemy.landTimer ?? 0) - dt);
+    enemy.y = enemy.baseY + Math.sin(enemy.frame * 12) * 2;
+    if (enemy.landTimer <= 0) enemy.dropPhase = "rise";
+    return;
+  }
+
+  enemy.y = approach(enemy.y, hoverY, (enemy.riseSpeed ?? 290) * dt);
+  if (Math.abs(enemy.y - hoverY) <= 1) {
+    enemy.y = hoverY;
+    enemy.dropPhase = "hover";
+    enemy.dropCooldown = enemy.dropDelay ?? 1.25;
+  }
+}
+
+function handleBlockerCollision(enemy, dt, pr, er) {
+  const stomp = state.player.vy > 160 && pr.y + pr.h - state.player.vy * dt <= er.y + 28;
+  if (!stomp) {
+    if (state.invincible > 0) {
+      knockBlockerAside(enemy);
+      state.score += 80;
+      playSfx("hit", 0.42);
+      return;
+    }
+    damagePlayer(false);
+    return;
+  }
+
+  const boosted = input.jump || input.jumpPressed || state.player.jumpBuffer > 0;
+  applyStompBounce(boosted, enemy.x + enemy.w / 2, enemy.y + 18);
+  if (boosted) state.player.jumpBuffer = 0;
+  knockBlockerAside(enemy);
+  state.score += 120;
+  playSfx("hit", 0.5);
+}
+
+function knockBlockerAside(enemy) {
+  const playerCenter = state.player.x + state.player.w / 2;
+  const enemyCenter = enemy.x + enemy.w / 2;
+  const dir = playerCenter < enemyCenter ? 1 : -1;
+  enemy.x = clamp(enemy.x + dir * (enemy.knockbackDistance ?? 86), enemy.minX, enemy.maxX);
+  enemy.dir = dir;
+  enemy.vy = -120;
+  enemy.dropPhase = "rise";
+  enemy.dropCooldown = 0.45;
+  burst(enemy.x + enemy.w / 2, enemy.y + enemy.h * 0.45, "#8fe9ff", 16, 220);
 }
 
 function updateAiboxBoss(enemy, dt) {
@@ -1593,25 +1720,26 @@ function handleAiboxBossCollision(enemy, dt, pr, er) {
   knockAiboxBossAside(enemy);
 
   damageAiboxBoss(enemy, getAiboxBossDamage(enemy, hasWeakItem), false, hasWeakItem);
-  if (!hasWeakItem) showNotice("AI Box 없이도 1/100씩 닳아. 아이템이 있으면 1/3!", 2.1);
+  if (!hasWeakItem) showNotice("아이템 없이도 1/100씩 닳아. 맞는 아이템이면 크게 닳아!", 2.1);
 }
 
 function getAiboxBossDamage(enemy, hasWeakItem) {
   const maxHp = enemy.maxHp || enemy.hp || 1;
-  return maxHp * (hasWeakItem ? 1 / 3 : 1 / 100);
+  const requiredHits = Math.max(1, Number(enemy.requiredHits) || 3);
+  return maxHp / (hasWeakItem ? requiredHits : 100);
 }
 
 function knockAiboxBossAside(enemy) {
   const playerCenter = state.player.x + state.player.w / 2;
   const enemyCenter = enemy.x + enemy.w / 2;
   const dir = playerCenter < enemyCenter ? 1 : -1;
-  enemy.x = clamp(enemy.x + dir * 132, enemy.minX, enemy.maxX);
+  enemy.x = clamp(enemy.x + dir * (enemy.knockbackDistance ?? 132), enemy.minX, enemy.maxX);
   enemy.dir = dir;
-  enemy.hitStun = 0.62;
-  enemy.recoilTimer = 0.82;
+  enemy.hitStun = enemy.hitStunTime ?? 0.62;
+  enemy.recoilTimer = enemy.recoilDuration ?? 0.82;
   enemy.recoilDir = dir;
   enemy.damageCooldown = Math.max(enemy.damageCooldown ?? 0, 0.36);
-  enemy.knockbackVx = dir * 860;
+  enemy.knockbackVx = dir * (enemy.knockbackVelocity ?? 860);
   burst(enemy.x + enemy.w / 2, enemy.y + 24, "#fff06b", 16, 240);
 }
 
@@ -1683,6 +1811,100 @@ function applyStompBounce(boosted, x, y) {
   p.coyote = 0;
   p.stompBoostTimer = boosted ? 0 : STOMP_JUMP_GRACE_TIME;
   burst(x, y, boosted ? "#fff06b" : "#c9ff6b", boosted ? 24 : 16, boosted ? 280 : 210);
+}
+
+function checkMiniGameTriggers() {
+  const games = state.level.miniGames || [];
+  const playerCenter = state.player.x + state.player.w / 2;
+  for (const trigger of games) {
+    if (trigger.triggered) continue;
+    if (playerCenter < trigger.x) continue;
+    startMiniGame(trigger);
+    return true;
+  }
+  return false;
+}
+
+function startMiniGame(trigger) {
+  trigger.triggered = true;
+  state.miniGame = {
+    active: true,
+    title: trigger.title || "치즈 캐치!",
+    target: trigger.target ?? 5,
+    timer: trigger.time ?? 8,
+    caught: 0,
+    mistakes: 0,
+    basketX: VIEW_W / 2,
+    items: [],
+    spawnTimer: 0.15,
+    spawnRate: trigger.spawnRate ?? 0.58,
+    goodChance: trigger.goodChance ?? 0.72,
+    fallSpeed: trigger.fallSpeed ?? 270,
+    rewardScore: trigger.rewardScore ?? 900,
+    rewardShield: trigger.rewardShield ?? 0
+  };
+  showNotice("미니게임 시작!", 1);
+}
+
+function updateMiniGame(dt) {
+  const game = state.miniGame;
+  if (!game) return;
+  const move = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  game.basketX = clamp(game.basketX + move * 560 * dt, 240, VIEW_W - 240);
+  game.timer -= dt;
+  game.spawnTimer -= dt;
+
+  if (game.spawnTimer <= 0) {
+    const kind = Math.random() < game.goodChance ? "good" : "bad";
+    game.items.push({
+      kind,
+      x: 230 + Math.random() * (VIEW_W - 460),
+      y: 226,
+      vy: game.fallSpeed + Math.random() * 80 + (kind === "bad" ? 60 : 0)
+    });
+    game.spawnTimer = Math.max(0.28, game.spawnRate * (0.72 + Math.random() * 0.46));
+  }
+
+  const basket = { x: game.basketX - 72, y: 536, w: 144, h: 54 };
+  for (const item of game.items) {
+    item.y += item.vy * dt;
+    const size = item.kind === "good" ? 50 : 42;
+    const rect = { x: item.x - size / 2, y: item.y - size / 2, w: size, h: size };
+    if (overlap(basket, rect)) {
+      item.taken = true;
+      if (item.kind === "good") {
+        game.caught += 1;
+        state.score += 120;
+        burst(state.player.x + state.player.w / 2, state.player.y + 18, "#ffd34b", 10, 160);
+        playSfx("cheese", 0.34);
+      } else {
+        game.timer = Math.max(0, game.timer - 1.1);
+        game.mistakes += 1;
+        playSfx("hit", 0.28);
+      }
+    }
+    if (item.y > 604) item.taken = true;
+  }
+  game.items = game.items.filter((item) => !item.taken);
+
+  if (game.caught >= game.target) finishMiniGame(true);
+  else if (game.timer <= 0) finishMiniGame(false);
+}
+
+function finishMiniGame(success) {
+  const game = state.miniGame;
+  state.miniGame = null;
+  if (success) {
+    state.score += game.rewardScore;
+    state.shield += game.rewardShield;
+    showNotice(game.rewardShield > 0 ? "미니게임 성공! 보호막 획득!" : "미니게임 성공! 보너스 점수!", 1.8);
+    burst(state.player.x + state.player.w / 2, state.player.y + 18, "#fff06b", 20, 260);
+    playSfx("complete", 0.42);
+  } else {
+    state.time = Math.max(0, state.time - 8);
+    showNotice("미니게임 실패! 시간이 줄었어.", 1.8);
+    playSfx("die", 0.3);
+  }
 }
 
 function updateProjectiles(dt) {
@@ -2060,7 +2282,14 @@ function render() {
 }
 
 function drawBackground() {
-  const img = images.background;
+  const themeImages = {
+    meadow: "background",
+    sunset: "backgroundSunset",
+    night: "backgroundNight",
+    storm: "backgroundStorm"
+  };
+  const imageKey = themeImages[state.level?.theme] || themeImages[state.level?.background] || state.level?.background || "background";
+  const img = images[imageKey] || images.background;
   const scale = VIEW_H / img.height;
   const w = img.width * scale;
   const slowX = -((state.cameraX * 0.22) % w);
@@ -2241,6 +2470,10 @@ function drawEnemies() {
         if (enemy.y < enemy.baseY - 36) frame = enemy.vy < 0 ? 1 : 2;
         else if (enemy.activated && (enemy.leapCooldown ?? 0) < 0.18) frame = 3;
         else frame = 0;
+      } else if (enemy.type === "blocker") {
+        if (enemy.dropPhase === "drop") frame = 2;
+        else if (enemy.dropPhase === "land") frame = 3;
+        else frame = Math.floor(enemy.frame) % 2;
       }
       const meta = enemyDrawMeta(enemy.type);
       const drawW = enemy.w * meta.w;
@@ -2267,7 +2500,7 @@ function drawEnemies() {
         ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, drawX, drawY, drawW, drawH);
       }
       ctx.restore();
-      if (enemy.hp > 1) {
+      if (enemy.hp > 1 && enemy.type !== "blocker") {
         ctx.save();
         ctx.fillStyle = "rgba(7, 16, 31, 0.72)";
         roundRect(enemy.x + 10, enemy.y - 12, enemy.w - 20, 8, 4);
@@ -2573,9 +2806,75 @@ function drawOverlay() {
 
 function drawRuntimeOverlays() {
   if (state.noticeTimer > 0 && state.notice) drawNotice();
+  if (state.miniGame?.active) drawMiniGame();
   if (state.pickupHint && state.pickupHintTimer > 0) drawAiboxPickupHint(state.pickupHint);
   if (state.activeCard && state.cardTimer > 0) drawAiboxCardPopup(state.activeCard);
   if (state.bossCutin && state.bossCutinTimer > 0) drawBossCutin(state.bossCutin.bossId);
+}
+
+function drawMiniGame() {
+  const game = state.miniGame;
+  ctx.save();
+  ctx.fillStyle = "rgba(3, 10, 30, 0.72)";
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  const x = 130;
+  const y = 86;
+  const w = 1020;
+  const h = 548;
+  ctx.fillStyle = "rgba(7, 24, 61, 0.96)";
+  ctx.strokeStyle = "#fff0a6";
+  ctx.lineWidth = 7;
+  roundRect(x, y, w, h, 14);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(143, 233, 255, 0.58)";
+  ctx.lineWidth = 3;
+  roundRect(x + 12, y + 12, w - 24, h - 24, 10);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#06122c";
+  ctx.lineWidth = 7;
+  ctx.fillStyle = "#fff06b";
+  ctx.font = "900 42px 'Apple SD Gothic Neo', sans-serif";
+  strokeFill(game.title || "치즈 캐치!", x + 52, y + 60);
+  ctx.fillStyle = "#c8f6ff";
+  ctx.lineWidth = 5;
+  ctx.font = "900 26px 'Apple SD Gothic Neo', sans-serif";
+  strokeFill(`목표 ${game.caught}/${game.target}`, x + 52, y + 102);
+  ctx.textAlign = "right";
+  strokeFill(`TIME ${Math.max(0, Math.ceil(game.timer))}`, x + w - 52, y + 102);
+
+  ctx.fillStyle = "rgba(16, 49, 106, 0.64)";
+  ctx.strokeStyle = "rgba(255, 240, 166, 0.42)";
+  ctx.lineWidth = 4;
+  roundRect(x + 48, y + 126, w - 96, h - 188, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  for (const item of game.items) {
+    const img = item.kind === "good" ? images.cheese : images.stoneBlock;
+    drawImageCentered(img, item.x, item.y, item.kind === "good" ? 54 : 46, item.kind === "good" ? 54 : 46);
+  }
+
+  const basketY = y + h - 78;
+  ctx.fillStyle = "#194b96";
+  ctx.strokeStyle = "#fff0a6";
+  ctx.lineWidth = 5;
+  roundRect(game.basketX - 64, basketY - 18, 128, 38, 10);
+  ctx.fill();
+  ctx.stroke();
+  drawImageCentered(images.cheese, game.basketX, basketY - 30, 44, 44);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fff8df";
+  ctx.lineWidth = 5;
+  ctx.font = "900 24px 'Apple SD Gothic Neo', sans-serif";
+  strokeFill("떨어지는 치즈를 모아 보너스를 얻자!", VIEW_W / 2, y + h - 30);
+  ctx.restore();
 }
 
 function drawNotice() {
@@ -2992,13 +3291,14 @@ function enemyDefaults(type = "turtle") {
     goblin: { type: "goblin", w: 68, h: 66, hp: 2, speed: 0, animSpeed: 3.2 },
     bear: { type: "bear", w: 116, h: 96, hp: 4, speed: 58, animSpeed: 3 },
     catboss: { type: "catboss", w: 142, h: 118, hp: 8, speed: 92, animSpeed: 3.4 },
+    blocker: { type: "blocker", w: 132, h: 112, hp: 99, speed: 86, chargeSpeed: 118, animSpeed: 4.2 },
     aiboxBoss: { type: "aiboxBoss", w: 190, h: 150, hp: 4, speed: 76, animSpeed: 2.8 }
   };
   return defaults[type] || defaults.turtle;
 }
 
 function enemySpriteFrames(type) {
-  return ["bat", "frog", "mole", "boar", "crow", "goblin", "bear", "catboss"].includes(type) ? 4 : 1;
+  return ["bat", "frog", "mole", "boar", "crow", "goblin", "bear", "catboss", "blocker"].includes(type) ? 4 : 1;
 }
 
 function enemyDrawMeta(type) {
@@ -3010,7 +3310,8 @@ function enemyDrawMeta(type) {
     crow: { w: 1.8, h: 2.15, foot: 0, fly: true },
     goblin: { w: 1.75, h: 1.9, foot: 10, fly: false },
     bear: { w: 1.35, h: 1.45, foot: 10, fly: false },
-    catboss: { w: 1.25, h: 1.34, foot: 8, fly: false }
+    catboss: { w: 1.25, h: 1.34, foot: 8, fly: false },
+    blocker: { w: 1.42, h: 1.42, foot: 8, fly: false }
   };
   return meta[type] || { w: 1, h: 1, foot: 0, fly: false };
 }
@@ -3022,6 +3323,14 @@ function enemyRect(enemy) {
       y: enemy.y + enemy.h * 0.12,
       w: enemy.w * 0.68,
       h: enemy.h * 0.78
+    };
+  }
+  if (enemy.type === "blocker") {
+    return {
+      x: enemy.x + enemy.w * 0.16,
+      y: enemy.y + enemy.h * 0.1,
+      w: enemy.w * 0.68,
+      h: enemy.h * 0.82
     };
   }
   return {
