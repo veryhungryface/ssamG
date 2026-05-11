@@ -271,6 +271,36 @@ textarea {
     0 3px 0 #06142f;
 }
 
+.music-button {
+  position: absolute;
+  right: clamp(14px, 2.2vw, 30px);
+  bottom: clamp(14px, 2.2vw, 30px);
+  z-index: 13;
+  width: clamp(52px, 6vw, 68px);
+  height: clamp(52px, 6vw, 68px);
+  border: 5px solid #51291c;
+  border-radius: 50%;
+  color: #fff8df;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.48), transparent 24%),
+    linear-gradient(#7ee8ff, #258ddf 68%, #16589b);
+  box-shadow:
+    inset 0 4px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -5px 0 rgba(5, 15, 42, 0.34),
+    0 7px 0 #06142f;
+  text-shadow:
+    0 3px 0 #06122c,
+    2px 0 0 #06122c,
+    -2px 0 0 #06122c;
+  font: 900 clamp(28px, 4vw, 40px) / 1 "Galmuri11", "DungGeunMo", "Apple SD Gothic Neo", sans-serif;
+  cursor: pointer;
+}
+
+.music-button.hidden,
+.game-shell:not([data-mode="ready"]) .music-button {
+  display: none;
+}
+
 .orientation-hint {
   position: absolute;
   inset: 0;

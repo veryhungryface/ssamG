@@ -5,6 +5,7 @@ const startButton = document.getElementById("startButton");
 const continueButton = document.getElementById("continueButton");
 const homeButton = document.getElementById("homeButton");
 const codexButton = document.getElementById("codexButton");
+const musicButton = document.getElementById("musicButton");
 const screenActions = document.getElementById("screenActions");
 const leaderboardList = document.getElementById("leaderboardList");
 const leaderboardStatus = document.getElementById("leaderboardStatus");
@@ -338,6 +339,7 @@ const state = {
   dialogueDismissDelay: 0,
   pauseTimer: 0,
   miniGame: null,
+  titleMusicBlocked: false,
   scorePrompted: false,
   scoreSubmitted: false
 };
@@ -387,8 +389,14 @@ homeButton?.addEventListener("click", () => {
 });
 
 codexButton?.addEventListener("click", () => {
+  if (state.mode === "ready") playIntro();
   playSfx("button", 0.36);
   openCodexModal();
+});
+
+musicButton?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  playIntro();
 });
 
 scoreForm?.addEventListener("submit", (event) => {
@@ -418,6 +426,10 @@ canvas.addEventListener("pointerdown", (event) => {
   }
   maybeResumeIntro(event);
 });
+
+document.addEventListener("pointerdown", () => {
+  if (state.mode === "ready" && state.titleMusicBlocked) playIntro();
+}, { capture: true });
 
 document.addEventListener("selectstart", suppressGameSelection, { capture: true });
 document.addEventListener("dragstart", suppressGameSelection, { capture: true });
@@ -1070,6 +1082,7 @@ function returnToTitle() {
 function setStartVisible(visible) {
   if (gameShell) gameShell.dataset.mode = state.mode;
   screenActions.classList.toggle("hidden", !visible);
+  setMusicButtonVisible(visible && state.mode === "ready" && state.titleMusicBlocked);
   startButton.textContent =
     state.mode === "ready" ? "새로시작" :
     state.mode === "level-clear" ? "다음 레벨" :
@@ -1077,6 +1090,10 @@ function setStartVisible(visible) {
   continueButton?.classList.toggle("hidden", !(visible && state.mode === "ready" && hasSavedGame()));
   homeButton?.classList.toggle("hidden", !(visible && state.mode === "lose"));
   codexButton?.classList.toggle("hidden", !(visible && state.mode !== "level-clear"));
+}
+
+function setMusicButtonVisible(visible) {
+  musicButton?.classList.toggle("hidden", !visible);
 }
 
 let previous = performance.now();
@@ -3393,9 +3410,17 @@ function playIntro() {
   introBgm.volume = 0.38;
   const playPromise = introBgm.play();
   if (playPromise && typeof playPromise.catch === "function") {
-    playPromise.catch(() => {
+    playPromise.then(() => {
+      state.titleMusicBlocked = false;
+      setMusicButtonVisible(false);
+    }).catch(() => {
+      state.titleMusicBlocked = true;
+      setMusicButtonVisible(true);
       // Browsers may block title music until a user gesture.
     });
+  } else {
+    state.titleMusicBlocked = false;
+    setMusicButtonVisible(false);
   }
 }
 
@@ -3403,6 +3428,7 @@ function pauseIntro() {
   if (!introBgm) return;
   introBgm.pause();
   introBgm.currentTime = 0;
+  if (state.mode !== "ready") setMusicButtonVisible(false);
 }
 
 function playBgm() {
