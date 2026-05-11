@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>쌤쥐 어드벤처</title>
-    <link rel="stylesheet" href="./styles.css?v=20260511-boss-sheets" />
+    <link rel="stylesheet" href="./styles.css?v=20260511-escape-frog-boss" />
   </head>
   <body>
     <main class="game-shell" data-mode="ready" aria-label="쌤쥐 어드벤처 게임">
@@ -67,6 +67,15 @@
           </div>
         </article>
       </div>
+      <div class="exit-modal hidden" id="exitConfirm" role="dialog" aria-modal="true" aria-labelledby="exitConfirmTitle">
+        <article class="exit-dialog">
+          <h2 id="exitConfirmTitle">게임을 종료하고 시작화면으로 돌아가시겠습니까?</h2>
+          <div class="exit-actions">
+            <button id="exitConfirmYes" type="button">예</button>
+            <button id="exitConfirmNo" type="button">아니오</button>
+          </div>
+        </article>
+      </div>
       <div class="orientation-hint" aria-hidden="true">
         <div class="orientation-card">
           <div class="rotate-mark">↻</div>
@@ -84,6 +93,6 @@
         </div>
       </div>
     </main>
-    <script type="module" src="./src/game.js?v=20260511-boss-sheets"></script>
+    <script type="module" src="./src/game.js?v=20260511-escape-frog-boss"></script>
   </body>
 </html>

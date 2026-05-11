@@ -26,6 +26,9 @@ const codexModalTitle = document.getElementById("codexModalTitle");
 const codexCardList = document.getElementById("codexCardList");
 const codexCardDetail = document.getElementById("codexCardDetail");
 const codexModalClose = document.getElementById("codexModalClose");
+const exitConfirm = document.getElementById("exitConfirm");
+const exitConfirmYes = document.getElementById("exitConfirmYes");
+const exitConfirmNo = document.getElementById("exitConfirmNo");
 const introBgm = document.getElementById("introBgm");
 const bgm = document.getElementById("bgm");
 
@@ -57,6 +60,8 @@ const PLAYER_DRAW_SIZE = 166;
 const PLAYER_SPRITE_FOOT_OFFSET = 68;
 const PLAYER_COLLISION_INSET_X = 11;
 const PLAYER_COLLISION_TOP_INSET = 8;
+const ENEMY_STOMP_GRACE = 0.22;
+const FROG_STOMP_GRACE = 0.34;
 const ENEMY_FOOT_SINK = 12;
 const WORLD_FLOOR = 760;
 const AIBOX_ASSET_ROOT = "assets/aibox";
@@ -155,6 +160,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/gongmun_monster-sheet.png",
     frames: 4,
     animSpeed: 1.25,
+    spriteAnimSpeed: 8,
     color: "#ffd166"
   },
   {
@@ -167,6 +173,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/counseling_ghost-sheet.png",
     frames: 4,
     animSpeed: 1.35,
+    spriteAnimSpeed: 8.4,
     color: "#97e7ff"
   },
   {
@@ -179,6 +186,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/lessonprep_zombie-sheet.png",
     frames: 4,
     animSpeed: 1.45,
+    spriteAnimSpeed: 7.2,
     color: "#9dff8b"
   },
   {
@@ -191,6 +199,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/minutes_wraith-sheet.png",
     frames: 4,
     animSpeed: 1.45,
+    spriteAnimSpeed: 8.2,
     color: "#c59cff"
   },
   {
@@ -203,6 +212,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/quiz_bug-sheet.png",
     frames: 4,
     animSpeed: 1.7,
+    spriteAnimSpeed: 9.2,
     color: "#ffdb5c"
   },
   {
@@ -215,6 +225,7 @@ const AIBOX_BOSS_DEFS = [
     sheet: "enemies/sheets/privacy_slime-sheet.png",
     frames: 4,
     animSpeed: 1.55,
+    spriteAnimSpeed: 7.6,
     color: "#72f5d1"
   }
 ];
@@ -360,6 +371,7 @@ const state = {
   dialogueDismissDelay: 0,
   pauseTimer: 0,
   miniGame: null,
+  exitConfirmOpen: false,
   titleMusicBlocked: false,
   scorePrompted: false,
   scoreSubmitted: false
@@ -407,6 +419,16 @@ continueButton?.addEventListener("click", () => {
 homeButton?.addEventListener("click", () => {
   playSfx("button", 0.42);
   returnToTitle();
+});
+
+exitConfirmYes?.addEventListener("click", () => {
+  playSfx("button", 0.42);
+  confirmExitToTitle();
+});
+
+exitConfirmNo?.addEventListener("click", () => {
+  playSfx("button", 0.36);
+  hideExitConfirm();
 });
 
 codexButton?.addEventListener("click", () => {
@@ -457,6 +479,17 @@ document.addEventListener("dragstart", suppressGameSelection, { capture: true })
 document.addEventListener("contextmenu", suppressGameSelection, { capture: true });
 
 window.addEventListener("keydown", (event) => {
+  if (state.exitConfirmOpen) {
+    event.preventDefault();
+    if (event.code === "Escape" || event.code === "KeyN") {
+      playSfx("button", 0.3);
+      hideExitConfirm();
+    } else if (event.code === "Enter" || event.code === "Space" || event.code === "KeyY") {
+      playSfx("button", 0.36);
+      confirmExitToTitle();
+    }
+    return;
+  }
   if (state.codexModalOpen) {
     event.preventDefault();
     if (event.code === "Escape" || event.code === "Space" || event.code === "Enter") {
@@ -471,6 +504,11 @@ window.addEventListener("keydown", (event) => {
       playSfx("button", 0.3);
       hideAiboxCardModal();
     }
+    return;
+  }
+  if (event.code === "Escape" && state.mode === "playing") {
+    event.preventDefault();
+    showExitConfirm();
     return;
   }
   if (dismissActiveDialogue()) {
@@ -805,6 +843,8 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
   state.dialogueDismissDelay = 0;
   state.pauseTimer = 0;
   state.miniGame = null;
+  state.exitConfirmOpen = false;
+  hideExitConfirm();
   stopSound("boss");
   state.cameraX = 0;
   state.message = "";
@@ -833,6 +873,7 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
       hp: enemy.hp ?? defaults.hp,
       maxHp: enemy.hp ?? defaults.hp,
       animSpeed: enemy.animSpeed ?? boss?.animSpeed ?? defaults.animSpeed,
+      spriteAnimSpeed: enemy.spriteAnimSpeed ?? boss?.spriteAnimSpeed ?? defaults.spriteAnimSpeed ?? defaults.animSpeed,
       cooldown: enemy.cooldown ?? 0.8 + index * 0.31,
       leapCooldown: enemy.leapCooldown ?? 0.5 + index * 0.12,
       attackCooldown: enemy.attackCooldown ?? 0.7 + index * 0.17,
@@ -844,7 +885,8 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
       vy: 0,
       introShown: false,
       dead: false,
-      frame: 0
+      frame: 0,
+      spriteFrame: 0
     };
   });
   state.player = {
@@ -1097,12 +1139,37 @@ function returnToTitle() {
   hideScoreModal();
   hideAiboxCardModal();
   hideCodexModal();
+  hideExitConfirm();
   pauseBgm();
   resetGame(0);
   restorePersistentCodex();
   state.mode = "ready";
   setStartVisible(true);
   playIntro();
+}
+
+function showExitConfirm() {
+  if (state.mode !== "playing" || state.exitConfirmOpen) return;
+  input.left = false;
+  input.right = false;
+  input.jump = false;
+  input.jumpPressed = false;
+  state.exitConfirmOpen = true;
+  if (gameShell) gameShell.dataset.exitConfirm = "open";
+  exitConfirm?.classList.remove("hidden");
+  window.setTimeout(() => exitConfirmNo?.focus(), 60);
+}
+
+function hideExitConfirm() {
+  exitConfirm?.classList.add("hidden");
+  if (gameShell) delete gameShell.dataset.exitConfirm;
+  state.exitConfirmOpen = false;
+}
+
+function confirmExitToTitle() {
+  saveGame({ levelIndex: state.levelIndex });
+  hideExitConfirm();
+  returnToTitle();
 }
 
 function setStartVisible(visible) {
@@ -1138,6 +1205,10 @@ function loop(now) {
 
 function update(dt) {
   updatePresentationTimers(dt);
+  if (state.exitConfirmOpen) {
+    updateParticles(dt);
+    return;
+  }
   if (state.codexModalOpen) {
     updateParticles(dt);
     return;
@@ -1434,6 +1505,8 @@ function updateEnemies(dt) {
   for (const enemy of state.enemies) {
     if (enemy.dead) continue;
     enemy.frame += dt * (enemy.animSpeed ?? 7);
+    enemy.spriteFrame = (enemy.spriteFrame ?? enemy.frame) + dt * (enemy.spriteAnimSpeed ?? enemy.animSpeed ?? 7);
+    if (enemy.type !== "aiboxBoss") enemy.hitStun = Math.max(0, (enemy.hitStun ?? 0) - dt);
     if (enemy.type === "aiboxBoss") {
       updateAiboxBoss(enemy, dt);
     } else if (enemy.type === "blocker") {
@@ -1545,6 +1618,7 @@ function updateEnemies(dt) {
     }
 
     if (enemy.type === "mole" && !enemy.active) continue;
+    if (enemy.type !== "aiboxBoss" && (enemy.hitStun ?? 0) > 0) continue;
     const er = enemyRect(enemy);
     const pr = rectPlayer();
     if (!overlap(pr, er)) continue;
@@ -1564,9 +1638,10 @@ function updateEnemies(dt) {
       playSfx("hit", 0.48);
       continue;
     }
-    if (state.player.vy > 160 && pr.y + pr.h - state.player.vy * dt <= er.y + 20) {
+    if (isPlayerStompingEnemy(enemy, pr, er, dt)) {
       enemy.hp -= 1;
       if (enemy.hp <= 0) enemy.dead = true;
+      enemy.hitStun = enemy.dead ? 0 : (enemy.type === "frog" ? FROG_STOMP_GRACE : ENEMY_STOMP_GRACE);
       const boosted = input.jump || input.jumpPressed || state.player.jumpBuffer > 0;
       applyStompBounce(boosted, enemy.x + enemy.w / 2, enemy.y + 28);
       if (boosted) state.player.jumpBuffer = 0;
@@ -2579,15 +2654,24 @@ function drawEnemies() {
   }
 }
 
-function drawAiboxBoss(enemy) {
-  const boss = getAiboxBoss(enemy.bossId);
+function getAiboxBossFrameSource(boss, frameValue = 0) {
   const sheet = images[`aiboxBossSheet_${boss.id}`];
   const image = sheet || images[`aiboxBoss_${boss.id}`];
-  if (!image) return;
+  if (!image) return null;
   const frames = sheet ? boss.frames || Math.max(1, Math.round(image.width / image.height)) : 1;
   const sourceW = image.width / frames;
-  const sourceH = image.height;
-  const frame = frames > 1 ? Math.floor(enemy.frame) % frames : 0;
+  return {
+    image,
+    frame: frames > 1 ? Math.floor(frameValue) % frames : 0,
+    sourceW,
+    sourceH: image.height
+  };
+}
+
+function drawAiboxBoss(enemy) {
+  const boss = getAiboxBoss(enemy.bossId);
+  const source = getAiboxBossFrameSource(boss, enemy.spriteFrame ?? enemy.frame);
+  if (!source) return;
   const drawW = enemy.drawW ?? enemy.w * 1.28;
   const drawH = enemy.drawH ?? enemy.h * 1.32;
   const drawX = enemy.x + enemy.w / 2 - drawW / 2;
@@ -2604,9 +2688,9 @@ function drawAiboxBoss(enemy) {
   if (enemy.dir < 0) {
     ctx.translate(drawX + drawW, drawY);
     ctx.scale(-1, 1);
-    ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, 0, 0, drawW, drawH);
+    ctx.drawImage(source.image, source.frame * source.sourceW, 0, source.sourceW, source.sourceH, 0, 0, drawW, drawH);
   } else {
-    ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, drawX, drawY, drawW, drawH);
+    ctx.drawImage(source.image, source.frame * source.sourceW, 0, source.sourceW, source.sourceH, drawX, drawY, drawW, drawH);
   }
   ctx.restore();
 
@@ -3021,7 +3105,7 @@ function getAiboxMysteryName(itemId) {
 
 function drawBossCutin(bossId) {
   const boss = getAiboxBoss(bossId);
-  const image = images[`aiboxBoss_${boss.id}`];
+  const source = getAiboxBossFrameSource(boss, performance.now() / 120);
   const needed = boss.weakTo.map((itemId) => getAiboxItem(itemId).title).join(" / ");
   const alpha = clamp(state.bossCutinTimer / 0.35, 0, 1);
   ctx.save();
@@ -3036,13 +3120,14 @@ function drawBossCutin(bossId) {
     message: boss.line,
     subline: `필요한 아이템: ${needed}`,
     accent: boss.color,
-    portraitImage: image,
+    portraitImage: source?.image || images[`aiboxBoss_${boss.id}`],
+    portraitSource: source,
     flipPortrait: true,
     villain: true
   });
 }
 
-function drawVisualNovelDialogue({ alpha = 1, side, speaker, message, subline = "", accent = "#fff06b", icon = null, portrait = "", portraitImage = null, flipPortrait = false, villain = false }) {
+function drawVisualNovelDialogue({ alpha = 1, side, speaker, message, subline = "", accent = "#fff06b", icon = null, portrait = "", portraitImage = null, portraitSource = null, flipPortrait = false, villain = false }) {
   const leftSide = side === "left";
   const barX = 24;
   const barY = 492;
@@ -3064,7 +3149,7 @@ function drawVisualNovelDialogue({ alpha = 1, side, speaker, message, subline = 
   ctx.fill();
 
   if (portrait === "samjwi") drawSamjwiDialoguePortrait(18, 238, 360, 360);
-  if (portraitImage) drawBossDialoguePortrait(portraitImage, VIEW_W - 392, 146, 344, 344, flipPortrait, accent);
+  if (portraitImage) drawBossDialoguePortrait(portraitImage, VIEW_W - 392, 146, 344, 344, flipPortrait, accent, portraitSource);
 
   ctx.shadowColor = "rgba(0, 0, 0, 0.42)";
   ctx.shadowOffsetX = 0;
@@ -3138,7 +3223,7 @@ function drawSamjwiDialoguePortrait(x, y, w, h) {
   ctx.restore();
 }
 
-function drawBossDialoguePortrait(image, x, y, w, h, flip, accent) {
+function drawBossDialoguePortrait(image, x, y, w, h, flip, accent, source = null) {
   ctx.save();
   ctx.fillStyle = "rgba(255, 248, 223, 0.88)";
   ctx.strokeStyle = accent;
@@ -3150,7 +3235,9 @@ function drawBossDialoguePortrait(image, x, y, w, h, flip, accent) {
   ctx.shadowOffsetX = -10;
   ctx.shadowOffsetY = 13;
   ctx.shadowBlur = 0;
-  if (flip) drawGeneratedImageFlipped(image, x, y, w, h);
+  if (source) {
+    drawGeneratedImageFrame(image, source.frame * source.sourceW, 0, source.sourceW, source.sourceH, x, y, w, h, flip);
+  } else if (flip) drawGeneratedImageFlipped(image, x, y, w, h);
   else drawGeneratedImage(image, x, y, w, h);
   ctx.restore();
 }
@@ -3303,6 +3390,19 @@ function drawGeneratedImageFlipped(image, x, y, w, h) {
   ctx.restore();
 }
 
+function drawGeneratedImageFrame(image, sx, sy, sw, sh, x, y, w, h, flip = false) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  if (flip) {
+    ctx.translate(Math.round(x + w), Math.round(y));
+    ctx.scale(-1, 1);
+    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, Math.round(w), Math.round(h));
+  } else {
+    ctx.drawImage(image, sx, sy, sw, sh, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+  ctx.restore();
+}
+
 function drawImageCentered(image, cx, cy, w, h = w) {
   ctx.drawImage(image, Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h));
 }
@@ -3365,6 +3465,18 @@ function enemyDrawMeta(type) {
   return meta[type] || { w: 1, h: 1, foot: 0, fly: false };
 }
 
+function isPlayerStompingEnemy(enemy, pr, er, dt) {
+  const topAllowance = enemy.type === "frog" ? 32 : 20;
+  const minFallSpeed = enemy.type === "frog" ? 120 : 160;
+  const previousBottom = pr.y + pr.h - state.player.vy * dt;
+  const horizontalOverlap = Math.min(pr.x + pr.w, er.x + er.w) - Math.max(pr.x, er.x);
+  return (
+    state.player.vy > minFallSpeed &&
+    previousBottom <= er.y + topAllowance &&
+    horizontalOverlap > Math.min(pr.w, er.w) * 0.18
+  );
+}
+
 function enemyRect(enemy) {
   if (enemy.type === "aiboxBoss") {
     return {
@@ -3380,6 +3492,14 @@ function enemyRect(enemy) {
       y: enemy.y + enemy.h * 0.1,
       w: enemy.w * 0.68,
       h: enemy.h * 0.82
+    };
+  }
+  if (enemy.type === "frog") {
+    return {
+      x: enemy.x + enemy.w * 0.08,
+      y: enemy.y - enemy.h * 0.18,
+      w: enemy.w * 0.84,
+      h: enemy.h * 1.02
     };
   }
   return {
