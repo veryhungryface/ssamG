@@ -152,6 +152,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["hwp_studio"],
     reward: "hwp_studio",
     sprite: "enemies/gongmun_monster.png",
+    sheet: "enemies/sheets/gongmun_monster-sheet.png",
+    frames: 4,
+    animSpeed: 1.25,
     color: "#ffd166"
   },
   {
@@ -161,6 +164,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["parent_message_helper"],
     reward: "parent_message_helper",
     sprite: "enemies/counseling_ghost.png",
+    sheet: "enemies/sheets/counseling_ghost-sheet.png",
+    frames: 4,
+    animSpeed: 1.35,
     color: "#97e7ff"
   },
   {
@@ -170,6 +176,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["infographic_generator", "image_style_converter"],
     reward: "infographic_generator",
     sprite: "enemies/lessonprep_zombie.png",
+    sheet: "enemies/sheets/lessonprep_zombie-sheet.png",
+    frames: 4,
+    animSpeed: 1.45,
     color: "#9dff8b"
   },
   {
@@ -179,6 +188,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["meeting_recorder"],
     reward: "meeting_recorder",
     sprite: "enemies/minutes_wraith.png",
+    sheet: "enemies/sheets/minutes_wraith-sheet.png",
+    frames: 4,
+    animSpeed: 1.45,
     color: "#c59cff"
   },
   {
@@ -188,6 +200,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["quiz_generator", "online_assessment_solver"],
     reward: "quiz_generator",
     sprite: "enemies/quiz_bug.png",
+    sheet: "enemies/sheets/quiz_bug-sheet.png",
+    frames: 4,
+    animSpeed: 1.7,
     color: "#ffdb5c"
   },
   {
@@ -197,6 +212,9 @@ const AIBOX_BOSS_DEFS = [
     weakTo: ["aibox_blue_cube"],
     reward: "aibox_blue_cube",
     sprite: "enemies/privacy_slime.png",
+    sheet: "enemies/sheets/privacy_slime-sheet.png",
+    frames: 4,
+    animSpeed: 1.55,
     color: "#72f5d1"
   }
 ];
@@ -209,7 +227,10 @@ const aiboxAssetPaths = {
     [`aiboxCard_${item.id}`, `${AIBOX_ASSET_ROOT}/${item.card}`],
     ...(item.fx ? [[`aiboxFx_${item.id}`, `${AIBOX_ASSET_ROOT}/${item.fx}`]] : [])
   ])),
-  ...Object.fromEntries(AIBOX_BOSS_DEFS.map((boss) => [`aiboxBoss_${boss.id}`, `${AIBOX_ASSET_ROOT}/${boss.sprite}`]))
+  ...Object.fromEntries(AIBOX_BOSS_DEFS.flatMap((boss) => [
+    [`aiboxBoss_${boss.id}`, `${AIBOX_ASSET_ROOT}/${boss.sprite}`],
+    [`aiboxBossSheet_${boss.id}`, `${AIBOX_ASSET_ROOT}/${boss.sheet}`]
+  ]))
 };
 
 const assetPaths = {
@@ -799,28 +820,33 @@ function setupLevel(levelIndex, { mode = "ready", keepStats = false } = {}) {
   level.enemies ||= [];
   level.blocks ||= [];
   level.platforms ||= [];
-  state.enemies = level.enemies.map((enemy, index) => ({
-    ...enemyDefaults(enemy.type),
-    ...enemy,
-    id: index,
-    baseX: enemy.x,
-    baseY: enemy.y,
-    dir: index % 2 === 0 ? 1 : -1,
-    hp: enemy.hp ?? enemyDefaults(enemy.type).hp,
-    maxHp: enemy.hp ?? enemyDefaults(enemy.type).hp,
-    cooldown: enemy.cooldown ?? 0.8 + index * 0.31,
-    leapCooldown: enemy.leapCooldown ?? 0.5 + index * 0.12,
-    attackCooldown: enemy.attackCooldown ?? 0.7 + index * 0.17,
-    damageCooldown: 0,
-    hitStun: 0,
-    knockbackVx: 0,
-    recoilTimer: 0,
-    recoilDir: 0,
-    vy: 0,
-    introShown: false,
-    dead: false,
-    frame: 0
-  }));
+  state.enemies = level.enemies.map((enemy, index) => {
+    const defaults = enemyDefaults(enemy.type);
+    const boss = enemy.type === "aiboxBoss" ? getAiboxBoss(enemy.bossId) : null;
+    return {
+      ...defaults,
+      ...enemy,
+      id: index,
+      baseX: enemy.x,
+      baseY: enemy.y,
+      dir: index % 2 === 0 ? 1 : -1,
+      hp: enemy.hp ?? defaults.hp,
+      maxHp: enemy.hp ?? defaults.hp,
+      animSpeed: enemy.animSpeed ?? boss?.animSpeed ?? defaults.animSpeed,
+      cooldown: enemy.cooldown ?? 0.8 + index * 0.31,
+      leapCooldown: enemy.leapCooldown ?? 0.5 + index * 0.12,
+      attackCooldown: enemy.attackCooldown ?? 0.7 + index * 0.17,
+      damageCooldown: 0,
+      hitStun: 0,
+      knockbackVx: 0,
+      recoilTimer: 0,
+      recoilDir: 0,
+      vy: 0,
+      introShown: false,
+      dead: false,
+      frame: 0
+    };
+  });
   state.player = {
     x: level.spawn.x,
     y: level.spawn.y,
@@ -2555,7 +2581,13 @@ function drawEnemies() {
 
 function drawAiboxBoss(enemy) {
   const boss = getAiboxBoss(enemy.bossId);
-  const image = images[`aiboxBoss_${boss.id}`];
+  const sheet = images[`aiboxBossSheet_${boss.id}`];
+  const image = sheet || images[`aiboxBoss_${boss.id}`];
+  if (!image) return;
+  const frames = sheet ? boss.frames || Math.max(1, Math.round(image.width / image.height)) : 1;
+  const sourceW = image.width / frames;
+  const sourceH = image.height;
+  const frame = frames > 1 ? Math.floor(enemy.frame) % frames : 0;
   const drawW = enemy.drawW ?? enemy.w * 1.28;
   const drawH = enemy.drawH ?? enemy.h * 1.32;
   const drawX = enemy.x + enemy.w / 2 - drawW / 2;
@@ -2572,9 +2604,9 @@ function drawAiboxBoss(enemy) {
   if (enemy.dir < 0) {
     ctx.translate(drawX + drawW, drawY);
     ctx.scale(-1, 1);
-    ctx.drawImage(image, 0, 0, drawW, drawH);
+    ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, 0, 0, drawW, drawH);
   } else {
-    ctx.drawImage(image, drawX, drawY, drawW, drawH);
+    ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, drawX, drawY, drawW, drawH);
   }
   ctx.restore();
 
